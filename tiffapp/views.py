@@ -1,38 +1,31 @@
 import os
 from django.shortcuts import render
 from django.http import HttpResponse
-from .forms import FolderInputForm
+from .forms import ImageUploadForm
 from PIL import Image
+from django.conf import settings
 
-def collect_images_from_folders(folder_list):
+def save_images_as_tiff(images, output_path):
     image_list = []
-    for folder in folder_list:
-        if not os.path.isdir(folder):
-            continue
-        for root, _, files in os.walk(folder):
-            for file in files:
-                if file.lower().endswith(('png', 'jpg', 'jpeg', 'bmp', 'gif')):
-                    file_path = os.path.join(root, file)
-                    try:
-                        image = Image.open(file_path)
-                        image_list.append(image)
-                    except Exception as e:
-                        print(f"Error opening image {file_path}: {e}")
-    return image_list
-
-def save_images_as_tiff(image_list, output_path):
+    for image in images:
+        try:
+            img = Image.open(image)
+            image_list.append(img)
+        except Exception as e:
+            print(f"Error opening image {image.name}: {e}")
+    
     if image_list:
         image_list[0].save(output_path, save_all=True, append_images=image_list[1:], compression='tiff_deflate')
 
 def index(request):
     if request.method == 'POST':
-        form = FolderInputForm(request.POST)
+        form = ImageUploadForm(request.POST, request.FILES)
         if form.is_valid():
-            folders = [folder.strip() for folder in form.cleaned_data['folders'].split(',')]
             output_file = form.cleaned_data['output_file']
-            images = collect_images_from_folders(folders)
-            save_images_as_tiff(images, output_file)
-            return HttpResponse(f"Saved {len(images)} images to {output_file}")
+            output_path = os.path.join(settings.MEDIA_ROOT, output_file)
+            images = request.FILES.getlist('images')
+            save_images_as_tiff(images, output_path)
+            return HttpResponse(f"Saved {len(images)} images to {output_path}")
     else:
-        form = FolderInputForm()
+        form = ImageUploadForm()
     return render(request, 'tiffapp/index.html', {'form': form})
