@@ -22,6 +22,8 @@ def index(request):
         form = ImageUploadForm(request.POST, request.FILES)
         if form.is_valid():
             output_file = form.cleaned_data['output_file']
+            if not output_file.lower().endswith('.tiff'):
+                output_file += '.tiff'
             output_path = os.path.join(settings.MEDIA_ROOT, output_file)
             images = request.FILES.getlist('images')
             save_images_as_tiff(images, output_path)
